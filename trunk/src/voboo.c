@@ -44,9 +44,7 @@ username_exist(char *username, char *passmd5)
   //FIXME username need to be checked for illegle characters
   while(fgets (buffer, 2000, fp))
   {
-    sscanf (buffer, "%s", uname_tmp);
-    fgets (buffer, 2000, fp);  //read password md5
-    sscanf (buffer, "%s", md5_tmp);
+    sscanf (buffer, "%s %s", uname_tmp, md5_tmp);
     if (!strcmp(uname_tmp, username))
     {
       strcpy(passmd5, md5_tmp);
@@ -69,8 +67,7 @@ add_user(char *username, char *passmd5)
   char uname_tmp[2000];
   FILE *fp = fopen (file_name, "a");
 
-  fprintf(fp, "%s\n", username);
-  fprintf(fp, "%s\n", passmd5);
+  fprintf(fp, "%s %s\n", username, passmd5);
   
   fclose (fp);
 }
@@ -170,7 +167,8 @@ choose_dict (char *username)
   FILE *fp_newlist = fopen (newlist_file, "w");
   while (fgets (buffer, 2000, fp_dict))
   {
-    fputs (buffer, fp_newlist);
+    buffer[strlen(buffer)-1] = 0;
+    fprintf (fp_newlist, "%s   0.0   0\n", buffer);
   }
   fclose (fp_newlist);
   fclose (fp_dict);
@@ -326,8 +324,24 @@ typedef struct Card
 {
   char *entry;
   float delay;
-  struct timeval review_time;
+  time_t review_time;
 }Card;
+
+void
+list_insert_after (List *list, Node *node, Node *new_node)
+{
+  new_node->prev = node;
+  new_node->next = node->next;
+  if (node->next)
+  {
+    node->next->prev = new_node;
+  }
+  else
+  {
+    list->last_node = new_node;
+  }
+  node->next = new_node;
+}
 
 void
 list_insert_before (List *list, Node *node, Node *new_node)
@@ -362,7 +376,20 @@ list_insert_beginning (List *list, Node *new_node)
 }
 
 void
-create_newlist (char *username, List *newlist)
+list_insert_end (List *list, Node *new_node)
+{
+  if (list->last_node)
+  {
+    list_insert_after (list, list->last_node, new_node);
+  }
+  else
+  {
+    list_insert_beginning (list, new_node);
+  }
+}
+
+void
+create_list (char *username, char *listname, List *newlist)
 {
   char newlist_file[2000];
   char buffer[2000];
@@ -370,73 +397,45 @@ create_newlist (char *username, List *newlist)
   strcpy (newlist_file, getenv("HOME"));
   strcat (newlist_file, "/.voboo/");
   strcat (newlist_file, username);
-  strcat (newlist_file, "/newlist");
+  strcat (newlist_file, "/");
+  strcat (newlist_file, listname);
 
   FILE *fp = fopen (newlist_file, "r");
   while (fgets (buffer, 2000, fp))
   {
     char tmp_ch[2000];
-    sscanf(buffer, "%s", tmp_ch);
+    float tmp_fl;
+    time_t tmp_tm;
+    sscanf(buffer, "%s %f %ld", tmp_ch, &tmp_fl, &tmp_tm);
     
     char *str = malloc (strlen (tmp_ch) * sizeof (char));
     str = strcpy(str, tmp_ch);
     
     Card *card = malloc (sizeof (Card));
     card->entry = str;
-    card->delay = 0.0f;
-    card->review_time.tv_sec = 0;
-    card->review_time.tv_usec = 0;
+    card->delay = tmp_fl;
+    card->review_time = tmp_tm;
     
     Node *node = malloc (sizeof (Node));
     node->prev = NULL;
     node->next = NULL;
     node->data = card;
     
-    list_insert_beginning (newlist, node);
+    list_insert_end (newlist, node);
   }
   fclose (fp);  
 }
 
+void
+create_all_list (char *username, List *newlist, List *reviewlist)
+{
+  create_list (username, "newlist", newlist);
+  create_list (username, "reviewlist", reviewlist);
+}
 void
 release_newlist (List *newlist)
 {
   //TODO
-}
-
-void
-create_reviewlist (char *username, List *reviewlist)
-{
-  char reviewlist_file[2000];
-  char buffer[2000];
-  
-  strcpy (reviewlist_file, getenv("HOME"));
-  strcat (reviewlist_file, "/.voboo/");
-  strcat (reviewlist_file, username);
-  strcat (reviewlist_file, "/reviewlist");
-
-  FILE *fp = fopen (reviewlist_file, "r");
-  while (fgets (buffer, 2000, fp))
-  {
-    char tmp_ch[2000];
-    float tmp_time;
-    sscanf(buffer, "%s %f", tmp_ch, &tmp_time);
-    
-    char *str = malloc (strlen (tmp_ch) * sizeof (char));
-    str = strcpy(str, tmp_ch);
-    
-    Card *card = malloc (sizeof (Card));
-    card->entry = str;
-    card->review_time.tv_sec = floor(tmp_time);
-    card->review_time.tv_usec = (tmp_time - floor(tmp_time))*1e6;
-    
-    Node *node = malloc (sizeof (Node));
-    node->prev = NULL;
-    node->next = NULL;
-    node->data = card;
-    
-    list_insert_beginning (reviewlist, node);
-  }
-  fclose (fp);  
 }
 
 void
@@ -452,7 +451,8 @@ get_first_card (List *list)
   Card *card;
 
   node = list->first_node;
-  node->next->prev = NULL;
+  if(node->next)
+    node->next->prev = NULL;
   list->first_node = node->next;
   
   node->prev = NULL;
@@ -470,7 +470,7 @@ select_card (List *newlist, List *reviewlist)
   if (reviewlist->first_node)
   {
     Card *card = reviewlist->first_node->data;
-    if (card->review_time.tv_sec < time(NULL))
+    if (card->review_time < time(NULL))
     {
       return get_first_card (reviewlist);
     }
@@ -483,6 +483,11 @@ select_card (List *newlist, List *reviewlist)
   {
     return get_first_card (newlist);
   }
+}
+
+void save_quit ()
+{
+  exit (0);
 }
 
 int
@@ -527,8 +532,7 @@ show_question (Card *card)
         return 0;
       case 'x':
         delete_window (win_quest);
-        endwin();
-        exit(0); //FIXME
+        save_quit(0); //FIXME
         return 0;
       default:
         wrefresh (win_quest);
@@ -543,6 +547,34 @@ play_sound (Card *card)
   strcat(cmd, card->entry);
   strcat(cmd, " -O - | grep -m 1 -e 'http://www.gstatic.com/[a-zA-Z0-9/%%_]*.mp3' -o` 2>/dev/null > /dev/null");
   system(cmd);
+}
+
+void
+get_translation (Card *card)
+{
+  char cmd[2000]="wget -q http://www.google.com/dictionary?langpair=en\\|zh-CN\\&q=";
+  strcat(cmd, card->entry);
+  strcat(cmd, " -O - | grep -e '<div  class=\"dct-em\">' -A 1 ");
+  strcat(cmd, "| grep -e '<span class=\"dct-tt\">[^a-zA-Z]*' ");
+  strcat(cmd, "| sed -e 's/<span class=\"dct-tt\">[a-zA-Z0-9 ;,.\\/()'\\''‘’?!`~@#$%^&*=_+{}<>-]*<\\/span>//g' ");
+  strcat(cmd, "| sed -e 's/<span class=\"dct-tt\">//g' ");
+  strcat(cmd, "| sed -e 's/<\\/span>//g'");
+  //wget -q http://www.google.com/dictionary?langpair=en\|zh-CN\&q=<<<entry>>> -O - 
+  //| grep -e '<div  class="dct-em">' -A 1 
+  //| grep -e '<span class="dct-tt">[^a-zA-Z]*' 
+  //| sed -e 's/<span class="dct-tt">[a-zA-Z ;,.\/()'\''‘’?!`~@#$%^&*-=_+{}<>]*<\/span>//g' 
+  //| sed -e 's/<span class="dct-tt">//g' 
+  //| sed -e 's/<\/span>//g'
+  char buffer[2000]={0};
+  
+  FILE *fp = fopen ("", "w");
+
+  FILE *stream = popen (cmd, "r");
+  while(fgets (buffer, 2000, stream))
+  {
+    fprintf (fp, "%s", buffer);
+  }
+  pclose (stream);
 }
 
 void
@@ -582,7 +614,7 @@ show_answer (int know, Card *card)
   
   int height = 30;
   int width = 60;
-//  keypad (win_answer, TRUE);
+
   win_answer = newwin (height, width, (row-height)/2, (col-width)/2);
 
   if(know)
@@ -590,8 +622,8 @@ show_answer (int know, Card *card)
     wmove (win_answer, height-6, (width - strlen ("Is your answer correct?")) / 2);
     wprintw (win_answer, "Is your answer correct?");
     
-    wmove (win_answer, height-4, (width - strlen ("<- YES   V DOUBTFUL   NO ->")) / 2);
-    wprintw (win_answer, "<- YES   V DOUBTFUL   NO ->");
+    wmove (win_answer, height-4, (width - strlen ("<- YES   V MAYBE   NO ->")) / 2);
+    wprintw (win_answer, "<- YES   V MAYBE   NO ->");
   }
   
 	wmove (win_answer, 2, (width - strlen (card->entry)) / 2);
@@ -635,8 +667,7 @@ show_answer (int know, Card *card)
         return 0;
       case 'x':
         delete_window (win_answer);
-        endwin();
-        exit(0); //FIXME
+        save_quit(0);
         return 0;
       default:
         wrefresh (win_answer);
@@ -650,9 +681,9 @@ get_delay (int assess, float time_used, Card *card)
   float param1 = 1.0f;
   float param2 = 2.5f;
   float param3 = 5.0f;
-  struct timeval current_time;
-  gettimeofday( &current_time, NULL);
-  current_time.tv_sec = time (NULL);
+  time_t current_time;
+//  gettimeofday( &current_time, NULL);
+  current_time = time (NULL);
   
   if(card->delay == 0.0f)
   {
@@ -677,24 +708,139 @@ get_delay (int assess, float time_used, Card *card)
     switch(assess)
     {
       case 0:
-        card->delay = (card->delay + (current_time.tv_sec-card->review_time.tv_sec)/4.0f)*param1;
+        card->delay = (card->delay + (current_time-card->review_time)/4.0f)*param1;
         break;
       case 1:
-        card->delay = (card->delay + (current_time.tv_sec-card->review_time.tv_sec)/2.0f)*param2;
+        card->delay = (card->delay + (current_time-card->review_time)/2.0f)*param2;
         break;
       case 2:
-        card->delay = (card->delay + (current_time.tv_sec-card->review_time.tv_sec))*param3;
+        card->delay = (card->delay + (current_time-card->review_time))*param3;
         break;
       default:
         break;
     }
   }
-  card->review_time.tv_sec = current_time.tv_sec + card->delay;
+  card->review_time = current_time + (long)card->delay;
 }
 
 void
 insert_card (Card* card, List* list)
 {
+  Node *node = list->first_node;
+  Node *new_node = malloc (sizeof (Node));
+  new_node->data = card;
+  if (node)
+  {
+    while (1)
+    {
+      if (card->review_time >= ((Card *)(node->data))->review_time) 
+      {
+        if (node->next)
+        {
+          node = node->next;
+          continue;
+        }
+        else
+        {
+          list_insert_after (list, node, new_node);
+          break;
+        }
+      }
+      else
+      {
+        list_insert_before (list, node, new_node);
+        break;
+      }
+    }
+  }
+  else
+  {
+    list_insert_beginning (list, new_node);
+  }
+}
+
+WINDOW *win_debug; //FIXME DEBUG
+
+//FIXME DEBUG
+void 
+create_debug ()
+{
+  int row, col;
+  getmaxyx (stdscr, row, col);
+  
+  int height = 30;
+  int width = 30;
+
+  win_debug = newwin (height, width, 1,1);
+
+  box (win_debug, 0, 0);
+  wrefresh (win_debug);
+}
+
+//FIXME DEBUG
+void 
+debug (const char *str, ...)
+{
+  wmove (win_debug, 1, 1);
+  wprintw (win_debug, str);
+}
+
+//FIXME DEBUG
+void
+print_list (List *list)
+{
+  Node *node = list->first_node;
+
+  time_t current_time;
+  current_time = time (NULL);
+
+  wmove (win_debug, 1, 1);
+  while (node)
+  {
+    Card *card = node->data;
+    wprintw (win_debug, " %s %f %ld\n", card->entry, card->delay, card->review_time-current_time);
+    node = node->next;
+  }
+  box (win_debug, 0, 0);
+  wrefresh (win_debug);
+}
+
+void
+save_list (FILE* fp, List *list)
+{
+  Node *node = list->first_node;
+  while(node)
+  {
+    Card* card = node->data;
+    fprintf(fp, "%s %f %ld\n", card->entry, card->delay, card->review_time);
+    node = node->next;
+  }
+}
+
+void 
+save_all_list (char * username, List *newlist, List *reviewlist)
+{
+  char user_dir[2000];
+  char newlist_file[2000];
+  char reviewlist_file[2000];
+  char buffer[2000];
+  
+  strcpy(user_dir, getenv("HOME"));
+  strcat(user_dir, "/.voboo/");
+  strcat(user_dir, username);
+  strcpy(newlist_file, user_dir);
+  strcat(newlist_file, "/newlist");
+  strcpy(reviewlist_file, user_dir);
+  strcat(reviewlist_file, "/reviewlist");
+
+  FILE *newlist_fp = fopen (newlist_file, "w");
+  FILE *reviewlist_fp = fopen (reviewlist_file, "w");
+  
+  save_list (newlist_fp, newlist);
+  save_list (reviewlist_fp, reviewlist);
+  
+  fclose (newlist_fp);
+  fclose (reviewlist_fp);
 }
 
 int
@@ -723,8 +869,7 @@ main (int argc, char *argv[])
   check_config ();
   if(authenticate (username))
   {
-    create_newlist (username, &newlist);
-    create_reviewlist (username, &reviewlist);
+    create_all_list (username, &newlist, &reviewlist);
     while (!done)
     {
       Card *card = select_card (&newlist, &reviewlist);
@@ -732,34 +877,13 @@ main (int argc, char *argv[])
       know = show_question (card);
       gettimeofday (&end, NULL);
       time_used = (float)(end.tv_sec - start.tv_sec) + (float)(end.tv_usec-start.tv_usec)*1e-6;
-      printw ("%f\n", time_used);
       assess = show_answer (know, card);
       get_delay (assess, time_used, card);
       insert_card (card, &reviewlist);
+      save_all_list (username, &newlist, &reviewlist);
     }
-    
   }
-  /*
-  printstatus  ();
-  createnewlist  ();
-  createreviewlist  ();
-  while  (!done)
-  {
-    selectcard  ();
-    getcard  ();
-    starttimer  ();
-    showquestion  ();
-    requestyesno  ();
-    recordtimer  ();
-    showanswer  ();
-    if  (yes)
-      selfassessment  ();
-    waitkey  ();
-    assessment  ();
-    setreviewtime  ();
-    updatelist  ();
-  }
-  */
+
   release_newlist (&newlist);
   release_reviewlist (&reviewlist);
   endwin ();
