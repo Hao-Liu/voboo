@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <string.h>
 #include <math.h>
-
+#include "types.h"
 #include <openssl/md5.h>
 
 void
@@ -34,7 +34,7 @@ username_exist(char *username, char *passmd5)
 {
   char file_name[2000];
   strcpy (file_name, getenv("HOME"));
-  strcat (file_name, "/.voboo/users");
+  strcat (file_name, "/.voboo/user_list");
 
   char buffer[2000];
   char uname_tmp[2000];
@@ -61,7 +61,7 @@ add_user(char *username, char *passmd5)
 {
   char file_name[2000];
   strcpy (file_name, getenv("HOME"));
-  strcat (file_name, "/.voboo/users");
+  strcat (file_name, "/.voboo/user_list");
   
   char buffer[2000];
   char uname_tmp[2000];
@@ -75,7 +75,7 @@ add_user(char *username, char *passmd5)
 void
 init_user (char *username, char *dictfile)
 {
-  return;
+  return; //TODO
 }
 
 void
@@ -86,6 +86,7 @@ delete_window (WINDOW *win)
   wrefresh (win);
   delwin (win);
 }
+
 void
 choose_dict (char *username)
 {
@@ -137,7 +138,7 @@ choose_dict (char *username)
   FILE *fp_dict = fopen (dict_file, "r");
   
   strcpy(user_dir, getenv("HOME"));
-  strcat(user_dir, "/.voboo/");
+  strcat(user_dir, "/.voboo/users/");
   strcat(user_dir, username);
   if(mkdir (user_dir, 0777) == -1)
   {
@@ -270,12 +271,13 @@ check_config (void)
   strcpy (conf_dir, getenv("HOME"));
   strcat (conf_dir, "/.voboo");
   strcpy (conf_users, conf_dir);
-  strcat (conf_users, "/users");
+  strcat (conf_users, "/user_list");
   
   refresh();
   
   if(stat(conf_dir, &dir_stat))
   {
+    printf ("Initializing directory structure.\n");
     if(errno != 2)
     {
       endwin ();
@@ -287,7 +289,66 @@ check_config (void)
       endwin ();
       error (1, errno, "can't create %s", conf_dir);
     }
-    
+
+    char user_dir[2000];
+    strcpy (user_dir, conf_dir);
+    strcat (user_dir, "/users");
+    if(mkdir (user_dir, 0777))
+    {
+      endwin ();
+      error (1, errno, "can't create %s", user_dir);
+    }
+
+    char i,j,k;
+    char repo_dir_1[2000];
+    char repo_dir_2[2000];
+    char repo_dir_3[2000];
+    char suffix[4];
+    strcat (conf_dir, "/cache");
+    if(mkdir (conf_dir, 0777))
+    {
+      endwin ();
+      error (1, errno, "can't create %s", conf_dir);
+    }
+    for(i='`'; i<='z'; i++)
+    {
+      strcpy (repo_dir_1, conf_dir);
+      suffix[0]=(i=='`')?'_':i;
+      suffix[1]=0;
+      strcat (repo_dir_1, "/");
+      strcat (repo_dir_1, suffix);
+      if(mkdir (repo_dir_1, 0777))
+      {
+        endwin ();
+        error (1, errno, "can't create %s", repo_dir_1);
+      }
+      for(j='`'; j<='z'; j++)
+      {
+        strcpy (repo_dir_2, repo_dir_1);
+        suffix[1]=(j=='`')?'_':j;
+	suffix[2]=0;
+	strcat (repo_dir_2, "/");
+	strcat (repo_dir_2, suffix);
+        if(mkdir (repo_dir_2, 0777))
+  	{
+     	  endwin ();
+    	  error (1, errno, "can't create %s", repo_dir_2);
+    	}
+       for(k='`'; k<='z'; k++)
+        {
+	  strcpy (repo_dir_3, repo_dir_2);
+	  suffix[2]=(k=='`')?'_':k;
+	  suffix[3]=0;
+ 	  strcat (repo_dir_3, "/");
+	  strcat (repo_dir_3, suffix);
+          if(mkdir (repo_dir_3, 0777))
+  	  {
+     	    endwin ();
+    	    error (1, errno, "can't create %s", repo_dir_3);
+    	  }
+        }
+      }
+    }
   }
 
   if(stat(conf_users, &dir_stat))
@@ -306,195 +367,10 @@ check_config (void)
   }
 }
 
-typedef struct Node
+void 
+save_quit ()
 {
-  void *data;
-  struct Node *next;
-  struct Node *prev;
-}Node;
-
-
-typedef struct List
-{
-  Node *first_node;
-  Node *last_node;
-}List;
-
-typedef struct Card
-{
-  char *entry;
-  float delay;
-  time_t review_time;
-}Card;
-
-void
-list_insert_after (List *list, Node *node, Node *new_node)
-{
-  new_node->prev = node;
-  new_node->next = node->next;
-  if (node->next)
-  {
-    node->next->prev = new_node;
-  }
-  else
-  {
-    list->last_node = new_node;
-  }
-  node->next = new_node;
-}
-
-void
-list_insert_before (List *list, Node *node, Node *new_node)
-{
-  new_node->prev = node->prev;
-  new_node->next = node;
-  if (node->prev)
-  {
-    node->prev->next = new_node;
-  }
-  else
-  {
-    list->first_node = new_node;
-  }
-  node->prev = new_node;
-}
-
-void
-list_insert_beginning (List *list, Node *new_node)
-{
-  if (list->first_node)
-  {
-    list_insert_before (list, list->first_node, new_node);
-  }
-  else
-  {
-    list->first_node = new_node;
-    list->last_node = new_node;
-    new_node->prev = NULL;
-    new_node->next = NULL;
-  }
-}
-
-void
-list_insert_end (List *list, Node *new_node)
-{
-  if (list->last_node)
-  {
-    list_insert_after (list, list->last_node, new_node);
-  }
-  else
-  {
-    list_insert_beginning (list, new_node);
-  }
-}
-
-void
-create_list (char *username, char *listname, List *newlist)
-{
-  char newlist_file[2000];
-  char buffer[2000];
-  
-  strcpy (newlist_file, getenv("HOME"));
-  strcat (newlist_file, "/.voboo/");
-  strcat (newlist_file, username);
-  strcat (newlist_file, "/");
-  strcat (newlist_file, listname);
-
-  FILE *fp = fopen (newlist_file, "r");
-  while (fgets (buffer, 2000, fp))
-  {
-    char tmp_ch[2000];
-    float tmp_fl;
-    time_t tmp_tm;
-    sscanf(buffer, "%s %f %ld", tmp_ch, &tmp_fl, &tmp_tm);
-    
-    char *str = malloc (strlen (tmp_ch) * sizeof (char)+1);
-    str = strcpy(str, tmp_ch);
-    
-    Card *card;
-    if (!(card = malloc (sizeof (Card))))
-    {
-	error(1, errno, "Error when allocating memory");
-    }
-    card->entry = str;
-    card->delay = tmp_fl;
-    card->review_time = tmp_tm;
-    
-    Node *node;
-    if (!(node = malloc (sizeof (Node))))
-    {
-	error(1, errno, "Error when allocating memory");
-    }
-    node->prev = NULL;
-    node->next = NULL;
-    node->data = card;
-    
-    list_insert_end (newlist, node);
-  }
-  fclose (fp);  
-}
-
-void
-create_all_list (char *username, List *newlist, List *reviewlist)
-{
-  create_list (username, "newlist", newlist);
-  create_list (username, "reviewlist", reviewlist);
-}
-void
-release_newlist (List *newlist)
-{
-  //TODO
-}
-
-void
-release_reviewlist (List *reviewlist)
-{
-  //TODO
-}
-
-Card *
-get_first_card (List *list)
-{
-  Node *node;
-  Card *card;
-
-  node = list->first_node;
-  if(node->next)
-    node->next->prev = NULL;
-  list->first_node = node->next;
-  
-  node->prev = NULL;
-  node->next = NULL;
-  
-  card = node->data;
-  free (node);
-  node = NULL;
-  return card;
-}
-
-Card *
-select_card (List *newlist, List *reviewlist)
-{
-  if (reviewlist->first_node)
-  {
-    Card *card = reviewlist->first_node->data;
-    if (card->review_time < time(NULL))
-    {
-      return get_first_card (reviewlist);
-    }
-    else
-    {
-      return get_first_card (newlist);
-    }
-  }
-  else
-  {
-    return get_first_card (newlist);
-  }
-}
-
-void save_quit ()
-{
+  endwin ();
   exit (0);
 }
 
@@ -549,16 +425,100 @@ show_question (Card *card)
 }
 
 void
-play_sound (Card *card)
+get_cache_file (char *file_name, const char * entry)
 {
-  char cmd[2000]="mplayer `wget -q http://www.google.com/dictionary?langpair=en\\|zh-CN\\&q=";
-  strcat(cmd, card->entry);
-  strcat(cmd, " -O - | grep -m 1 -e 'http://www.gstatic.com/[a-zA-Z0-9/%%_]*.mp3' -o` 2>/dev/null > /dev/null");
-  system(cmd);
+  char i,j,k;
+  int length = strlen(entry);
+  if (length > 0)
+  {
+    i=entry[0];
+    if (length > 1)
+    {
+      j=entry[1];
+      if (length > 2)
+      {
+      	k=entry[2];
+      }
+      else
+      {
+      	k='_';
+      }
+    }
+    else
+    {
+      j='_';
+    }
+  }
+  else
+  {
+    error (1, errno, "wrong entry %ld", entry);
+  }
+
+  strcpy (file_name, getenv("HOME"));
+  strcat (file_name, "/.voboo/cache/");
+  
+  char buffer[4];
+  buffer[0]=i;
+  buffer[1]=0;
+  strcat (file_name, buffer);
+  strcat (file_name, "/");
+  buffer[1]=j;
+  buffer[2]=0;
+  strcat (file_name, buffer);
+  strcat (file_name, "/");
+  buffer[2]=k;
+  buffer[3]=0;
+  strcat (file_name, buffer);
+  strcat (file_name, "/");
+  strcat (file_name, entry);
 }
 
 void
-get_translation (Card *card)
+get_sound (Card *card)
+{
+  char cmd[2000]="wget -q `wget -q http://www.google.com/dictionary?langpair=en\\|zh-CN\\&q=";
+  strcat (cmd, card->entry);
+  strcat (cmd, " -O - | grep -m 1 -e 'http://www.gstatic.com/[a-zA-Z0-9/%%_]*.mp3' -o` -O ");
+  
+  char cache_file[2000];
+  get_cache_file (cache_file, card->entry);
+  strcat (cache_file, ".mp3");
+  strcat (cmd, cache_file);
+  system (cmd);
+  
+  struct stat cache_stat;
+  if (stat (cache_file, &cache_stat))
+  {
+    if(creat (cache_file, 0777) == -1)
+    {
+      endwin ();
+      error (1, errno, "can't create %s", cache_file);
+    }
+  }
+}
+
+void
+play_sound (Card *card)
+{
+  struct stat cache_stat;
+  char cache_file[2000];
+  get_cache_file (cache_file, card->entry);
+  strcat (cache_file, ".mp3");
+  if (stat(cache_file, &cache_stat))
+  {
+    get_sound (card);
+    play_sound (card);
+  }
+  else
+  {
+    char cmd[2000]="mplayer -really-quiet ";
+    strcat (cmd, cache_file);
+    system (cmd);
+  }
+}
+
+void
+get_translation (Card* card)
 {
   char cmd[2000]="wget -q http://www.google.com/dictionary?langpair=en\\|zh-CN\\&q=";
   strcat(cmd, card->entry);
@@ -567,48 +527,42 @@ get_translation (Card *card)
   strcat(cmd, "| sed -e 's/<span class=\"dct-tt\">[a-zA-Z0-9 ;,.\\/()'\\''‘’?!`~@#$%^&*=_+{}<>-]*<\\/span>//g' ");
   strcat(cmd, "| sed -e 's/<span class=\"dct-tt\">//g' ");
   strcat(cmd, "| sed -e 's/<\\/span>//g'");
-  //wget -q http://www.google.com/dictionary?langpair=en\|zh-CN\&q=<<<entry>>> -O - 
-  //| grep -e '<div  class="dct-em">' -A 1 
-  //| grep -e '<span class="dct-tt">[^a-zA-Z]*' 
-  //| sed -e 's/<span class="dct-tt">[a-zA-Z ;,.\/()'\''‘’?!`~@#$%^&*-=_+{}<>]*<\/span>//g' 
-  //| sed -e 's/<span class="dct-tt">//g' 
-  //| sed -e 's/<\/span>//g'
-  char buffer[2000]={0};
-  
-  FILE *fp = fopen ("", "w");
 
+  char buffer[2000]={0};
+  char cache_file[2000];
+  
   FILE *stream = popen (cmd, "r");
+  get_cache_file (cache_file, card->entry);
+  FILE *fp = fopen (cache_file, "w");
   while(fgets (buffer, 2000, stream))
   {
-    fprintf (fp, "%s", buffer);
+    fputs (buffer, fp);
   }
   pclose (stream);
+  fclose (fp);
 }
 
 void
 show_translation (WINDOW* win, Card *card)
 {
-  char cmd[2000]="wget -q http://www.google.com/dictionary?langpair=en\\|zh-CN\\&q=";
-  strcat(cmd, card->entry);
-  strcat(cmd, " -O - | grep -e '<div  class=\"dct-em\">' -A 1 ");
-  strcat(cmd, "| grep -e '<span class=\"dct-tt\">[^a-zA-Z]*' ");
-  strcat(cmd, "| sed -e 's/<span class=\"dct-tt\">[a-zA-Z0-9 ;,.\\/()'\\''‘’?!`~@#$%^&*=_+{}<>-]*<\\/span>//g' ");
-  strcat(cmd, "| sed -e 's/<span class=\"dct-tt\">//g' ");
-  strcat(cmd, "| sed -e 's/<\\/span>//g'");
-  //wget -q http://www.google.com/dictionary?langpair=en\|zh-CN\&q=<<<entry>>> -O - 
-  //| grep -e '<div  class="dct-em">' -A 1 
-  //| grep -e '<span class="dct-tt">[^a-zA-Z]*' 
-  //| sed -e 's/<span class="dct-tt">[a-zA-Z ;,.\/()'\''‘’?!`~@#$%^&*-=_+{}<>]*<\/span>//g' 
-  //| sed -e 's/<span class="dct-tt">//g' 
-  //| sed -e 's/<\/span>//g'
-  char buffer[2000]={0};
-
-  FILE *stream = popen (cmd, "r");
-  while(fgets (buffer, 2000, stream))
+  struct stat cache_stat;
+  char cache_file[2000];
+  get_cache_file (cache_file, card->entry);
+  if (stat(cache_file, &cache_stat))
   {
-    wprintw (win, buffer);
+    get_translation (card);
+    show_translation (win, card);
   }
-  pclose (stream);
+  else
+  {
+    char buffer[2000]={0};
+    FILE *fp = fopen (cache_file, "r");
+    while(fgets (buffer, 2000, fp))
+    {
+      wprintw (win, buffer);
+    }
+    fclose (fp);
+  }
 }
 
 int
@@ -656,6 +610,7 @@ show_answer (int know, Card *card)
     play_sound (card);
     exit (0);
   }
+
   noecho ();
   while (1)
   {
@@ -731,42 +686,6 @@ get_delay (int assess, float time_used, Card *card)
   card->review_time = current_time + (long)card->delay;
 }
 
-void
-insert_card (Card* card, List* list)
-{
-  Node *node = list->first_node;
-  Node *new_node = malloc (sizeof (Node));
-  new_node->data = card;
-  if (node)
-  {
-    while (1)
-    {
-      if (card->review_time >= ((Card *)(node->data))->review_time) 
-      {
-        if (node->next)
-        {
-          node = node->next;
-          continue;
-        }
-        else
-        {
-          list_insert_after (list, node, new_node);
-          break;
-        }
-      }
-      else
-      {
-        list_insert_before (list, node, new_node);
-        break;
-      }
-    }
-  }
-  else
-  {
-    list_insert_beginning (list, new_node);
-  }
-}
-
 WINDOW *win_debug; //FIXME DEBUG
 
 //FIXME DEBUG
@@ -811,44 +730,6 @@ print_list (List *list)
   }
   box (win_debug, 0, 0);
   wrefresh (win_debug);
-}
-
-void
-save_list (FILE* fp, List *list)
-{
-  Node *node = list->first_node;
-  while(node)
-  {
-    Card* card = node->data;
-    fprintf(fp, "%s %f %ld\n", card->entry, card->delay, card->review_time);
-    node = node->next;
-  }
-}
-
-void 
-save_all_list (char * username, List *newlist, List *reviewlist)
-{
-  char user_dir[2000];
-  char newlist_file[2000];
-  char reviewlist_file[2000];
-  char buffer[2000];
-  
-  strcpy(user_dir, getenv("HOME"));
-  strcat(user_dir, "/.voboo/");
-  strcat(user_dir, username);
-  strcpy(newlist_file, user_dir);
-  strcat(newlist_file, "/newlist");
-  strcpy(reviewlist_file, user_dir);
-  strcat(reviewlist_file, "/reviewlist");
-
-  FILE *newlist_fp = fopen (newlist_file, "w");
-  FILE *reviewlist_fp = fopen (reviewlist_file, "w");
-  
-  save_list (newlist_fp, newlist);
-  save_list (reviewlist_fp, reviewlist);
-  
-  fclose (newlist_fp);
-  fclose (reviewlist_fp);
 }
 
 int
