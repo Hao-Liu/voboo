@@ -408,15 +408,23 @@ create_list (char *username, char *listname, List *newlist)
     time_t tmp_tm;
     sscanf(buffer, "%s %f %ld", tmp_ch, &tmp_fl, &tmp_tm);
     
-    char *str = malloc (strlen (tmp_ch) * sizeof (char));
+    char *str = malloc (strlen (tmp_ch) * sizeof (char)+1);
     str = strcpy(str, tmp_ch);
     
-    Card *card = malloc (sizeof (Card));
+    Card *card;
+    if (!(card = malloc (sizeof (Card))))
+    {
+	error(1, errno, "Error when allocating memory");
+    }
     card->entry = str;
     card->delay = tmp_fl;
     card->review_time = tmp_tm;
     
-    Node *node = malloc (sizeof (Node));
+    Node *node;
+    if (!(node = malloc (sizeof (Node))))
+    {
+	error(1, errno, "Error when allocating memory");
+    }
     node->prev = NULL;
     node->next = NULL;
     node->data = card;
