@@ -773,11 +773,55 @@ update_cache(List *list)
   }
 }
 
+int 
+list_get_size (List *list)
+{
+  int n = 0;
+  Node *node = list->first_node;
+  while(node)
+  {
+    n++;
+    node=node->next;
+  }
+
+  return n;
+}
+
 void
 shuffle_list(List *list)
 {
+  int i,j;
+  int n = list_get_size (list);
+
+  Node *node = list->first_node;
+  Node **node_ptr = malloc (n*sizeof(Node*));
   
+  for (i=0; i<n; i++)
+  {
+    node_ptr[i]=node;
+    node=node->next;
+  }
+
+  for (i=n-1; i>1; i--)
+  {
+    j=rand()%i; //FIXME:srand()
+    Node *tmp;
+    tmp = node_ptr[i]->prev;
+    node_ptr[i]->prev = node_ptr[j]->prev;
+    node_ptr[j]->prev = tmp;
+
+    tmp = node_ptr[i]->next;
+    node_ptr[i]->next = node_ptr[j]->next;
+    node_ptr[j]->next = tmp;
+    
+    tmp = node_ptr[i];
+    node_ptr[i] = node_ptr[j];
+    node_ptr[j] = tmp;
+  }
+  list->first_node = node_ptr[0];
+  list->last_node = node_ptr[n-1];
 }
+
 int
 main (int argc, char *argv[])
 {
@@ -805,7 +849,7 @@ main (int argc, char *argv[])
   if(authenticate (username))
   {
     create_all_list (username, &newlist, &reviewlist);
-    
+    shuffle_list (&newlist);
     pid_t pid;
     pid = fork();
     if(!pid)
