@@ -732,6 +732,52 @@ print_list (List *list)
   wrefresh (win_debug);
 }
 
+void
+update_cache(List *list)
+{
+  Node *node = list->first_node;
+  if(node)
+  {
+    while(node)
+    {
+      if(node->data)
+      {
+        Card card;
+        memcpy (&card, node->data, sizeof(Card));
+
+	char cache_file[2000];
+	struct stat stat_file;
+	get_cache_file (cache_file, card.entry);
+	if(stat (cache_file, &stat_file))
+	{
+	  get_translation(&card);
+	}
+	strcat (cache_file, ".mp3");
+	if(stat (cache_file, &stat_file))
+	{
+	  get_sound(&card);
+	}
+      }
+      else
+      {
+      	sleep(1);
+	update_cache(list);
+      }
+      node=node->next;
+    }
+  }
+  else
+  {
+    sleep(1);
+    update_cache(list);
+  }
+}
+
+void
+shuffle_list(List *list)
+{
+  
+}
 int
 main (int argc, char *argv[])
 {
@@ -759,9 +805,18 @@ main (int argc, char *argv[])
   if(authenticate (username))
   {
     create_all_list (username, &newlist, &reviewlist);
+    
+    pid_t pid;
+    pid = fork();
+    if(!pid)
+    {
+      update_cache(&newlist);
+      exit(0);
+    }
+    
     while (!done)
     {
-      Card *card = select_card (&newlist, &reviewlist);
+      Card *card = (Card *) select_card (&newlist, &reviewlist);
       gettimeofday (&start, NULL);
       know = show_question (card);
       gettimeofday (&end, NULL);
