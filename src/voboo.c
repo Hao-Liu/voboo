@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include <math.h>
 #include "types.h"
 #include <openssl/md5.h>
@@ -368,8 +369,9 @@ check_config (void)
 }
 
 void 
-save_quit ()
+save_quit (pid_t pid)
 {
+  kill (pid, SIGINT); //SIGKILL
   endwin ();
   exit (0);
 }
@@ -846,11 +848,12 @@ main (int argc, char *argv[])
   keypad (stdscr, TRUE);
 
   check_config ();
+  pid_t pid;
   if(authenticate (username))
   {
     create_all_list (username, &newlist, &reviewlist);
     shuffle_list (&newlist);
-    pid_t pid;
+    
     pid = fork();
     if(!pid)
     {
@@ -874,6 +877,6 @@ main (int argc, char *argv[])
 
   release_newlist (&newlist);
   release_reviewlist (&reviewlist);
-  endwin ();
+  save_quit (pid);
   return 0;
 }
