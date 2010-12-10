@@ -109,7 +109,6 @@ check_config (void)
   strcpy (conf_dir, getenv("HOME"));
   strcat (conf_dir, "/.voboo");
   
-  refresh();
   
   if(stat(conf_dir, &dir_stat))
   {
