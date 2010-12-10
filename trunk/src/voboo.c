@@ -98,7 +98,7 @@ choose_dict (char *username)
   int height = 10;
   int width = 25;
   win_dict = newwin (height, width, (row-height)/2, (col-width)/2);
-  box (win_dict, 0, 0);
+  wborder(win_dict, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_dict);
   wmove (win_dict, 1, 1);
   wprintw (win_dict, "Select a Vocabulary:");
@@ -189,10 +189,10 @@ authenticate(char *username)
   int height = 7;
   int width = 30;
   win_auth = newwin (height, width, (row-height)/2, (col-width)/2);
-  box (win_auth, 0, 0);
+  wborder(win_auth, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_auth);
 
-  char txt_title[] = "Authorization";
+  char txt_title[] = "Authentication";
   wmove (win_auth, 1, (width - sizeof (txt_title)) / 2);
   wprintw (win_auth, txt_title);
   
@@ -273,10 +273,10 @@ show_question (Card *card)
 //  keypad (win_quest, TRUE);
   win_quest = newwin (height, width, (row-height)/2, (col-width)/2);
 
-	attron(COLOR_PAIR(2));
+	wattron(win_quest, COLOR_PAIR(1));
 	wmove (win_quest, 3, (width - strlen (card->entry)) / 2);
   wprintw (win_quest, "%s", card->entry);
-  attroff(COLOR_PAIR(2));  
+  wattroff(win_quest, COLOR_PAIR(1));  
   
   wmove (win_quest, 6, (width - strlen ("Do you know this word?")) / 2);
   wprintw (win_quest, "Do you know this word?");
@@ -285,7 +285,7 @@ show_question (Card *card)
   wprintw (win_quest, "<- YES       NO ->");
   
   
-  box (win_quest, 0, 0);
+  wborder(win_quest, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_quest);
 
   noecho ();
@@ -432,7 +432,7 @@ get_translation (Card* card)
 }
 
 void
-show_translation (WINDOW* win, Card *card)
+show_translation (WINDOW* win, Card *card, int x, int y)
 {
   struct stat cache_stat;
   char cache_file[2000];
@@ -440,7 +440,7 @@ show_translation (WINDOW* win, Card *card)
   if (stat(cache_file, &cache_stat))
   {
     get_translation (card);
-    show_translation (win, card);
+    show_translation (win, card, x, y);
   }
   else
   {
@@ -448,6 +448,7 @@ show_translation (WINDOW* win, Card *card)
     FILE *fp = fopen (cache_file, "r");
     while(fgets (buffer, 2000, fp))
     {
+    	wmove (win, x++, y);
       wprintw (win, buffer);
     }
     fclose (fp);
@@ -476,19 +477,20 @@ show_answer (int know, Card *card)
     wprintw (win_answer, "<- YES   V MAYBE   NO ->");
   }
   
+  wattron (win_answer, COLOR_PAIR(2));
 	wmove (win_answer, 2, (width - strlen (card->entry)) / 2);
   wprintw (win_answer, "%s", card->entry);
+  wattroff (win_answer, COLOR_PAIR(2));
   
 	wmove (win_answer, 4, 2);
   wprintw (win_answer, "Loading...");
   
-  box (win_answer, 0, 0);
+  wborder(win_answer, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_answer);
 
-	wmove (win_answer, 4, 2);
-	show_translation (win_answer, card);
+	show_translation (win_answer, card, 4, 2);
 
-  box (win_answer, 0, 0);
+  wborder(win_answer, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_answer);
   
   pid_t pid;
@@ -616,7 +618,7 @@ create_debug ()
 
   win_debug = newwin (height, width, 1,1);
 
-  box (win_debug, 0, 0);
+  wborder(win_debug, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_debug);
 }
 
@@ -644,7 +646,7 @@ print_list (List *list)
     wprintw (win_debug, " %s %f %ld\n", card->entry, card->delay, card->review_time-current_time);
     node = node->next;
   }
-  box (win_debug, 0, 0);
+  wborder(win_debug, '|', '|', '_','_',' ',' ','|','|');
   wrefresh (win_debug);
 }
 
@@ -656,28 +658,33 @@ update_cache(List *list)
   {
     while(node)
     {
+      if(getppid() == 1)
+      {
+        exit(0);
+      }
+      
       if(node->data)
       {
         Card card;
         memcpy (&card, node->data, sizeof(Card));
 
-	char cache_file[2000];
-	struct stat stat_file;
-	get_cache_file (cache_file, card.entry);
-	if(stat (cache_file, &stat_file))
-	{
-	  get_translation(&card);
-	}
-	strcat (cache_file, ".mp3");
-	if(stat (cache_file, &stat_file))
-	{
-	  get_sound(&card);
-	}
+	      char cache_file[2000];
+	      struct stat stat_file;
+	      get_cache_file (cache_file, card.entry);
+	      if(stat (cache_file, &stat_file))
+	      {
+	        get_translation(&card);
+	      }
+	      strcat (cache_file, ".mp3");
+	      if(stat (cache_file, &stat_file))
+	      {
+	        get_sound(&card);
+	      }
       }
       else
       {
       	sleep(1);
-	update_cache(list);
+        update_cache(list);
       }
       node=node->next;
     }
@@ -712,6 +719,10 @@ main (int argc, char *argv[])
   initscr ();
   cbreak ();
   keypad (stdscr, TRUE);
+  start_color();
+  init_pair(1, COLOR_RED, COLOR_BLACK);
+  init_pair(2, COLOR_GREEN, COLOR_BLACK);
+
 
   check_config ();
   refresh();

@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <ncurses.h>
@@ -26,7 +27,7 @@ fork_me ()
         }
         else //grandson
         {
-          play_sound (card);
+          //TODO insert your code here;
           while (getppid() != 1) //if my dad is dead and I'm adopted by YKW
           {
             sleep(1); //sleeping
@@ -41,6 +42,7 @@ fork_me ()
     }
   }
 }
+
 void 
 save_quit ()
 {
