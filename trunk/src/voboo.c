@@ -714,11 +714,12 @@ main (int argc, char *argv[])
   keypad (stdscr, TRUE);
 
   check_config ();
+  refresh();
   pid_t pid;
   if(authenticate (username))
   {
     create_all_list (username, &newlist, &reviewlist);
-//  shuffle_list (&newlist);
+    shuffle_list (&newlist);
     
     pid = fork();
     if(!pid)
@@ -741,8 +742,7 @@ main (int argc, char *argv[])
     }
   }
 
-  release_newlist (&newlist);
-  release_reviewlist (&reviewlist);
+  release_all_list (&newlist, &reviewlist);
   save_quit (0);
   return 0;
 }

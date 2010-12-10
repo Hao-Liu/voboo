@@ -27,9 +27,11 @@ void
 save_list (FILE* fp, List *list);
 void 
 save_all_list (char * username, List *newlist, List *reviewlist);
+
 int 
 list_get_size (List *list);
-void
+
+void 
 shuffle_list(List *list);
 
 #endif

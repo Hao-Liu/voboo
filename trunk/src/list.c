@@ -1,3 +1,9 @@
+/********************************************//**
+ * \file list.c
+ *
+ * A series of function to manipulate doubly-
+ * linked lists
+ ***********************************************/
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -7,7 +13,14 @@
 
 #include "types.h"
 
-void
+/********************************************//**
+ *Insert [new_node] after [node] in [list]
+ *
+ *@param[in,out] list     The list that [new_node] to be inserted to
+ *@param[in] node         The node after which [new_node] to be inserted
+ *@param[in] new_node     The new node to be inserted
+ ***********************************************/
+void 
 list_insert_after (List *list, Node *node, Node *new_node)
 {
   new_node->prev = node;
@@ -23,6 +36,13 @@ list_insert_after (List *list, Node *node, Node *new_node)
   node->next = new_node;
 }
 
+/********************************************//**
+ *Insert [new_node] before [node] in [list]
+ *
+ *@param[in,out] list     The list that [new_node] to be inserted to
+ *@param[in] node         The node before which [new_node] to be inserted
+ *@param[in] new_node     The new node to be inserted
+ ***********************************************/
 void
 list_insert_before (List *list, Node *node, Node *new_node)
 {
@@ -39,6 +59,12 @@ list_insert_before (List *list, Node *node, Node *new_node)
   node->prev = new_node;
 }
 
+/********************************************//**
+ *Insert [new_node] at the beginning of [list]
+ *
+ *@param[in,out] list     The list that [new_node] to be inserted to
+ *@param[in] new_node     The new node to be inserted at the beginning of [list]
+ ***********************************************/
 void
 list_insert_beginning (List *list, Node *new_node)
 {
@@ -55,6 +81,12 @@ list_insert_beginning (List *list, Node *new_node)
   }
 }
 
+/********************************************//**
+ *Insert [new_node] at the end of [list]
+ *
+ *@param[in,out] list     The list that [new_node] to be inserted to
+ *@param[in] new_node     The new node to be inserted at the beginning of [list]
+ ***********************************************/
 void
 list_insert_end (List *list, Node *new_node)
 {
@@ -68,19 +100,26 @@ list_insert_end (List *list, Node *new_node)
   }
 }
 
+/********************************************//**
+ *Create [list] for [username] as a [listname] TODO Not to be related to card
+ *
+ *@param[in] username     The username for who [list] to be created for
+ *@param[in] listname     The listname (newlist or reviewlist) belongs to [list]
+ *@param[out] list        The new created list for output
+ ***********************************************/
 void
-create_list (char *username, char *listname, List *newlist)
+create_list (char *username, char *listname, List *list)
 {
-  char newlist_file[2000];
+  char list_file[2000];
   char buffer[2000];
   
-  strcpy (newlist_file, getenv("HOME"));
-  strcat (newlist_file, "/.voboo/users/");
-  strcat (newlist_file, username);
-  strcat (newlist_file, "/");
-  strcat (newlist_file, listname);
+  strcpy (list_file, getenv("HOME"));
+  strcat (list_file, "/.voboo/users/");
+  strcat (list_file, username);
+  strcat (list_file, "/");
+  strcat (list_file, listname);
 
-  FILE *fp = fopen (newlist_file, "r");
+  FILE *fp = fopen (list_file, "r");
   while (fgets (buffer, 2000, fp))
   {
     char tmp_ch[2000];
@@ -109,27 +148,99 @@ create_list (char *username, char *listname, List *newlist)
     node->next = NULL;
     node->data = card;
     
-    list_insert_end (newlist, node);
+    list_insert_end (list, node);
   }
   fclose (fp);  
 }
 
+/********************************************//**
+ *Create all lists (newlist and reviewlist) for [username]
+ *
+ *@param[in] username     The username for who lists to be created for
+ *@param[out] newlist     The new word list to be created
+ *@param[out] reviewlist  The review word list to be created
+ ***********************************************/
 void
 create_all_list (char *username, List *newlist, List *reviewlist)
 {
   create_list (username, "newlist", newlist);
   create_list (username, "reviewlist", reviewlist);
 }
+
+/********************************************//**
+ *Release all memory of a list
+ *
+ *@param[in,out] list     The list to be released
+ ***********************************************/
 void
-release_newlist (List *newlist)
+release_list (List *list)
 {
   //TODO
 }
 
+/********************************************//**
+ *Release all memory of all lists (newlist and reviewlist)
+ *
+ *@param[in,out] newlist     The new word list to be released
+ ***********************************************/
 void
-release_reviewlist (List *reviewlist)
+release_all_list (List *newlist, List *reviewlist)
 {
   //TODO
+}
+
+/********************************************//**
+ * Get the number of nodes in [list]
+ *
+ * @param[in] list The list whose items need to be counted
+ * @return    number of items in the list
+ ***********************************************/
+int 
+list_get_size (List *list)
+{
+  int n = 0;
+  Node *node = list->first_node;
+  while(node)
+  {
+    n++;
+    node=node->next;
+  }
+
+  return n;
+}
+
+/********************************************//**
+ * Rearrange nodes in [list] randomly using Arnoldi algorithm
+ *
+ * @param[in] list The list whose items need to be shuffled
+ ***********************************************/
+void
+shuffle_list(List *list)
+{
+  int i,j;
+  int n = list_get_size (list);
+
+  Node *node = list->first_node;
+  Node **node_ptr = malloc (n*sizeof(Node*));
+  
+  for (i=0; i<n; i++)
+  {
+    node_ptr[i]=node;
+    node=node->next;
+  }
+
+  for (i=n-1; i>1; i--)
+  {
+    j=rand()%i; //FIXME:srand()
+    Node *tmp;
+
+    tmp = node_ptr[i]->data;
+    node_ptr[i]->data = node_ptr[j]->data;
+    node_ptr[j]->data = tmp;
+  }
+  
+  free (node_ptr);
+  node_ptr = NULL;
 }
 
 Card *
@@ -244,57 +355,6 @@ save_all_list (char * username, List *newlist, List *reviewlist)
   
   fclose (newlist_fp);
   fclose (reviewlist_fp);
-}
-
-int 
-list_get_size (List *list)
-{
-  int n = 0;
-  Node *node = list->first_node;
-  while(node)
-  {
-    n++;
-    node=node->next;
-  }
-
-  return n;
-}
-
-
-void
-shuffle_list(List *list)
-{
-  int i,j;
-  int n = list_get_size (list);
-
-  Node *node = list->first_node;
-  Node **node_ptr = malloc (n*sizeof(Node*));
-  
-  for (i=0; i<n; i++)
-  {
-    node_ptr[i]=node;
-    node=node->next;
-  }
-
-  for (i=n-1; i>1; i--)
-  {
-    j=rand()%i; //FIXME:srand()
-    Node *tmp;
-    
-    tmp = node_ptr[i]->prev;
-    node_ptr[i]->prev = node_ptr[j]->prev;
-    node_ptr[j]->prev = tmp;
-
-    tmp = node_ptr[i]->next;
-    node_ptr[i]->next = node_ptr[j]->next;
-    node_ptr[j]->next = tmp;
-    
-    tmp = node_ptr[i];
-    node_ptr[i] = node_ptr[j];
-    node_ptr[j] = tmp;
-  }
-  list->first_node = node_ptr[0];
-  list->last_node = node_ptr[n-1];
 }
 
 
