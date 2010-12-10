@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <math.h>
 #include "types.h"
+#include "list.h"
 #include <openssl/md5.h>
 
 void
@@ -64,8 +65,6 @@ add_user(char *username, char *passmd5)
   strcpy (file_name, getenv("HOME"));
   strcat (file_name, "/.voboo/user_list");
   
-  char buffer[2000];
-  char uname_tmp[2000];
   FILE *fp = fopen (file_name, "a");
 
   fprintf(fp, "%s %s\n", username, passmd5);
@@ -184,7 +183,6 @@ authenticate(char *username)
   int row, col;
   char passmd5[2000];
   char inputmd5[2000];
-  char dictfile[2000];
 
   getmaxyx (stdscr, row, col);
   
@@ -258,122 +256,9 @@ authenticate(char *username)
       delete_window (win_auth);
       return 1;
     }
-  }
-}
-
-void
-check_config (void)
-{
-  struct stat dir_stat;
-
-  char conf_dir[2000] ;
-  char conf_users[2000];
-  
-  strcpy (conf_dir, getenv("HOME"));
-  strcat (conf_dir, "/.voboo");
-  strcpy (conf_users, conf_dir);
-  strcat (conf_users, "/user_list");
-  
-  refresh();
-  
-  if(stat(conf_dir, &dir_stat))
-  {
-    printf ("Initializing directory structure.\n");
-    if(errno != 2)
-    {
-      endwin ();
-      error (1, errno, "error in reading %s", conf_dir);
-    }
     
-    if(mkdir (conf_dir, 0777))
-    {
-      endwin ();
-      error (1, errno, "can't create %s", conf_dir);
-    }
-
-    char user_dir[2000];
-    strcpy (user_dir, conf_dir);
-    strcat (user_dir, "/users");
-    if(mkdir (user_dir, 0777))
-    {
-      endwin ();
-      error (1, errno, "can't create %s", user_dir);
-    }
-
-    char i,j,k;
-    char repo_dir_1[2000];
-    char repo_dir_2[2000];
-    char repo_dir_3[2000];
-    char suffix[4];
-    strcat (conf_dir, "/cache");
-    if(mkdir (conf_dir, 0777))
-    {
-      endwin ();
-      error (1, errno, "can't create %s", conf_dir);
-    }
-    for(i='`'; i<='z'; i++)
-    {
-      strcpy (repo_dir_1, conf_dir);
-      suffix[0]=(i=='`')?'_':i;
-      suffix[1]=0;
-      strcat (repo_dir_1, "/");
-      strcat (repo_dir_1, suffix);
-      if(mkdir (repo_dir_1, 0777))
-      {
-        endwin ();
-        error (1, errno, "can't create %s", repo_dir_1);
-      }
-      for(j='`'; j<='z'; j++)
-      {
-        strcpy (repo_dir_2, repo_dir_1);
-        suffix[1]=(j=='`')?'_':j;
-	suffix[2]=0;
-	strcat (repo_dir_2, "/");
-	strcat (repo_dir_2, suffix);
-        if(mkdir (repo_dir_2, 0777))
-  	{
-     	  endwin ();
-    	  error (1, errno, "can't create %s", repo_dir_2);
-    	}
-       for(k='`'; k<='z'; k++)
-        {
-	  strcpy (repo_dir_3, repo_dir_2);
-	  suffix[2]=(k=='`')?'_':k;
-	  suffix[3]=0;
- 	  strcat (repo_dir_3, "/");
-	  strcat (repo_dir_3, suffix);
-          if(mkdir (repo_dir_3, 0777))
-  	  {
-     	    endwin ();
-    	    error (1, errno, "can't create %s", repo_dir_3);
-    	  }
-        }
-      }
-    }
+    return 0; //useless
   }
-
-  if(stat(conf_users, &dir_stat))
-  {
-    if(errno != 2)
-    {
-      endwin ();
-      error (1, errno, "error in reading %s", conf_users);
-    }
-
-    if(creat (conf_users, 0777) == -1)
-    {
-      endwin ();
-      error (1, errno, "can't create %s", conf_users);
-    }
-  }
-}
-
-void 
-save_quit (pid_t pid)
-{
-  kill (pid, SIGINT); //SIGKILL
-  endwin ();
-  exit (0);
 }
 
 int
@@ -486,6 +371,7 @@ get_sound (Card *card)
   get_cache_file (cache_file, card->entry);
   strcat (cache_file, ".mp3");
   strcat (cmd, cache_file);
+  strcat (cmd, " 2>/dev/null 1>/dev/null");
   system (cmd);
   
   struct stat cache_stat;
@@ -515,6 +401,7 @@ play_sound (Card *card)
   {
     char cmd[2000]="mplayer -really-quiet ";
     strcat (cmd, cache_file);
+    strcat (cmd, " 2>/dev/null 1>/dev/null ");
     system (cmd);
   }
 }
@@ -640,7 +527,7 @@ show_answer (int know, Card *card)
   }
 }
 
-int
+void
 get_delay (int assess, float time_used, Card *card)
 {
   float param1 = 1.0f;
@@ -775,54 +662,6 @@ update_cache(List *list)
   }
 }
 
-int 
-list_get_size (List *list)
-{
-  int n = 0;
-  Node *node = list->first_node;
-  while(node)
-  {
-    n++;
-    node=node->next;
-  }
-
-  return n;
-}
-
-void
-shuffle_list(List *list)
-{
-  int i,j;
-  int n = list_get_size (list);
-
-  Node *node = list->first_node;
-  Node **node_ptr = malloc (n*sizeof(Node*));
-  
-  for (i=0; i<n; i++)
-  {
-    node_ptr[i]=node;
-    node=node->next;
-  }
-
-  for (i=n-1; i>1; i--)
-  {
-    j=rand()%i; //FIXME:srand()
-    Node *tmp;
-    tmp = node_ptr[i]->prev;
-    node_ptr[i]->prev = node_ptr[j]->prev;
-    node_ptr[j]->prev = tmp;
-
-    tmp = node_ptr[i]->next;
-    node_ptr[i]->next = node_ptr[j]->next;
-    node_ptr[j]->next = tmp;
-    
-    tmp = node_ptr[i];
-    node_ptr[i] = node_ptr[j];
-    node_ptr[j] = tmp;
-  }
-  list->first_node = node_ptr[0];
-  list->last_node = node_ptr[n-1];
-}
 
 int
 main (int argc, char *argv[])
@@ -863,7 +702,7 @@ main (int argc, char *argv[])
     
     while (!done)
     {
-      Card *card = (Card *) select_card (&newlist, &reviewlist);
+      Card *card = select_card (&newlist, &reviewlist);
       gettimeofday (&start, NULL);
       know = show_question (card);
       gettimeofday (&end, NULL);
@@ -877,6 +716,6 @@ main (int argc, char *argv[])
 
   release_newlist (&newlist);
   release_reviewlist (&reviewlist);
-  save_quit (pid);
+  save_quit (0);
   return 0;
 }
