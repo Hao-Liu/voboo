@@ -59,13 +59,13 @@ OUT=$(OUTPUT_DIR)$(OUTPUT_FILE)
 
 $(OUT): $(OBJ_FILES)
 	@echo  "building: $(notdir $@) \t\t\t please wait ..."
-	@$(CC) $(FLAG_LINK) $(addprefix $(OBJ_DIR),$(notdir $^)) $(LIB) -o $@
+	@$(CC) $(FLAG_LINK) $(addprefix $(OBJ_DIR),$(notdir $^)) $(LIB) -o $@ -Wall
 %.o:%.c %.d
 	@echo  "building: $(notdir $@) \t\t\t please wait ..."
-	@$(CC) $(FLAG_COMPLE) $< $(INCLUDE) -o $(OBJ_DIR)$@
+	@$(CC) $(FLAG_COMPLE) $< $(INCLUDE) -o $(OBJ_DIR)$@ -Wall
 $(OBJ_DIR)%.d:%.c
 	@echo  "building: $(notdir $@) \t\t\t please wait ..."
-	@$(CC) $< $(INCLUDE) -MM -MD -o $@
+	@$(CC) $< $(INCLUDE) -MM -MD -o $@ -Wall
 #	@$(CC) $< $(INCLUDE) -o $@
 -include $(addprefix $(OBJ_DIR),$(DEP_FILES))
 config: dir

@@ -1,8 +1,11 @@
 #include <stdlib.h>
-#include "types.h"
 #include <stdio.h>
 #include <errno.h>
+#include <error.h>
 #include <string.h>
+#include <time.h>
+
+#include "types.h"
 
 void
 list_insert_after (List *list, Node *node, Node *new_node)
@@ -91,7 +94,7 @@ create_list (char *username, char *listname, List *newlist)
     Card *card;
     if (!(card = malloc (sizeof (Card))))
     {
-	error(1, errno, "Error when allocating memory");
+	    error(1, errno, "Error when allocating memory");
     }
     card->entry = str;
     card->delay = tmp_fl;
@@ -100,7 +103,7 @@ create_list (char *username, char *listname, List *newlist)
     Node *node;
     if (!(node = malloc (sizeof (Node))))
     {
-	error(1, errno, "Error when allocating memory");
+	    error(1, errno, "Error when allocating memory");
     }
     node->prev = NULL;
     node->next = NULL;
@@ -224,7 +227,6 @@ save_all_list (char * username, List *newlist, List *reviewlist)
   char user_dir[2000];
   char newlist_file[2000];
   char reviewlist_file[2000];
-  char buffer[2000];
   
   strcpy(user_dir, getenv("HOME"));
   strcat(user_dir, "/.voboo/users/");
@@ -242,6 +244,56 @@ save_all_list (char * username, List *newlist, List *reviewlist)
   
   fclose (newlist_fp);
   fclose (reviewlist_fp);
+}
+
+int 
+list_get_size (List *list)
+{
+  int n = 0;
+  Node *node = list->first_node;
+  while(node)
+  {
+    n++;
+    node=node->next;
+  }
+
+  return n;
+}
+
+
+void
+shuffle_list(List *list)
+{
+  int i,j;
+  int n = list_get_size (list);
+
+  Node *node = list->first_node;
+  Node **node_ptr = malloc (n*sizeof(Node*));
+  
+  for (i=0; i<n; i++)
+  {
+    node_ptr[i]=node;
+    node=node->next;
+  }
+
+  for (i=n-1; i>1; i--)
+  {
+    j=rand()%i; //FIXME:srand()
+    Node *tmp;
+    tmp = node_ptr[i]->prev;
+    node_ptr[i]->prev = node_ptr[j]->prev;
+    node_ptr[j]->prev = tmp;
+
+    tmp = node_ptr[i]->next;
+    node_ptr[i]->next = node_ptr[j]->next;
+    node_ptr[j]->next = tmp;
+    
+    tmp = node_ptr[i];
+    node_ptr[i] = node_ptr[j];
+    node_ptr[j] = tmp;
+  }
+  list->first_node = node_ptr[0];
+  list->last_node = node_ptr[n-1];
 }
 
 
