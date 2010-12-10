@@ -280,6 +280,7 @@ shuffle_list(List *list)
   {
     j=rand()%i; //FIXME:srand()
     Node *tmp;
+    
     tmp = node_ptr[i]->prev;
     node_ptr[i]->prev = node_ptr[j]->prev;
     node_ptr[j]->prev = tmp;

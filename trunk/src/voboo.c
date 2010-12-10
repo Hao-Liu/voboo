@@ -461,7 +461,6 @@ show_answer (int know, Card *card)
   int row, col;
   getmaxyx (stdscr, row, col);
   
-  pid_t pid;
   
   int height = 30;
   int width = 60;
@@ -492,14 +491,42 @@ show_answer (int know, Card *card)
   box (win_answer, 0, 0);
   wrefresh (win_answer);
   
-  pid = fork();
-  
-  if(!pid)
+  pid_t pid;
+  if ( (pid=fork()) < 0)
   {
-    play_sound (card);
-    exit (0);
+    error (0, errno, "can't fork");
   }
-
+  else
+  {
+    if(pid == 0) //son
+    {
+      if ( (pid=fork()) < 0)
+      {
+        error (0, errno, "can't fork");
+      }
+      else
+      {
+        if (pid > 0) //son
+        {
+          exit (0); //suicide
+        }
+        else //grandson
+        {
+          play_sound (card);
+          while (getppid() != 1) //if my dad is dead and I'm adopted by YKW
+          {
+            sleep(1); //sleeping
+          }
+          exit(0); //see you in the underworld, dad
+        }
+      }
+    }
+    if (waitpid (pid, NULL, 0) != pid)
+    {
+      error (0, errno, "this is not my son");
+    }
+  }
+  
   noecho ();
   while (1)
   {
@@ -691,7 +718,7 @@ main (int argc, char *argv[])
   if(authenticate (username))
   {
     create_all_list (username, &newlist, &reviewlist);
-    shuffle_list (&newlist);
+//  shuffle_list (&newlist);
     
     pid = fork();
     if(!pid)
